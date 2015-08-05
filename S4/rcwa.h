@@ -424,6 +424,46 @@ void GetZPoyntingFluxComponents(
 	std::complex<double> *work = NULL // length 4*n2 or NULL
 );
 
+
+
+
+
+
+//Purpose:
+
+//Returns the electric field amplitude of each forward and backward mode at a particular z
+//This is done by copying ab so that the b vector to zero, calculating the in-plane field vector, yielding the field only due to the forward mode.
+//Then doing the same with the a-vector zero.
+
+void GetEModeAtZ(
+	size_t n, // glist.n
+	const double *kx,
+	const double *ky,
+	std::complex<double> omega,
+	const std::complex<double> *q, // length 2*glist.n
+	const std::complex<double> *kp, // size (2*glist.n)^2 (k-parallel matrix)
+	const std::complex<double> *phi, // size (2*glist.n)^2
+	const std::complex<double> *epsilon_inv, // size (glist.n)^2, non NULL for efield != NULL
+	int epstype,
+	const std::complex<double> *ab, // length 4*glist.n
+	const double z,
+	const std::complex<double> emodeforw,  //length 3*glist.n
+	const std::complex<double> emodeback,
+	//std::complex<double> emode[3],
+	//const double r[2], // coordinates within layer
+	//std::complex<double> efield[3],
+	//std::complex<double> hfield[3],
+	std::complex<double> *work // 8*n2
+)
+
+
+
+
+
+
+
+
+
 // Purpose
 // =======
 // Returns the electric and/or magnetic field at a particular point

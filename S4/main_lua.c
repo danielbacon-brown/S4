@@ -2150,7 +2150,7 @@ static int S4L_Simulation_GetAmplitudes(lua_State *L){
 	Simulation_GetAmplitudes(S, 
 		layer,
 		luaL_checknumber(L, 3),
-		amp, &amp[4*n]);
+		amp, &amp[4*n]);  
 	
 	lua_createtable(L, 2*n, 0);
 	for(i = 0; i < 2*n; ++i){
@@ -2450,6 +2450,81 @@ static int S4L_Simulation_OutputLayerPatternRealization(lua_State *L){
 		}
 	}
 	return 0;
+}
+static int S4L_Simulation_GetEModes(lua_State *L){
+	double *ampEforw;
+	double *ampEback;
+	int j, ret;
+	//double r[3], fE[6];
+	//double z, mE[6];
+	double z;
+	Simulation *S = S4L_get_simulation(L, 1);
+	luaL_argcheck(L, S != NULL, 1, "GetEMode: 'Simulation' object expected.");
+	
+	n = Simulation_GetNumG(S, &G);  //Gets number of modes
+	if(NULL == G){
+		return 0;
+	}
+	
+	
+	/*for(j = 0; j < 3; ++j){
+		lua_pushinteger(L, 1+j);
+		lua_gettable(L, 2);
+		if(!lua_isnumber(L, -1)){
+			S4L_error(L, "GetEMode: Point coordinate must be numeric.");
+		}else{
+			r[j] = (double)lua_tonumber(L, -1);
+		}
+		lua_pop(L, 1);
+	}*/
+	
+	//ret = Simulation_GetField(S, r, fE, NULL);
+	ampEforw = (double*)malloc(sizeof(double)*6*n);   //Allocates space for 12 variables for each mode (3 for vectors, 2 for real&imag, 2 for forw&back) 
+	ampEback = (double*)malloc(sizeof(double)*6*n);
+	
+	ret = Simulation_GetEMode(S, z,
+		ampEforw, ampEback); //Gets simulated values
+	//ret = Simulation_GetEMode(S, z, mE);
+	if(0 != ret){   //Need this check?
+		HandleSolutionErrorCode(L, "GetEMode", ret);
+	}
+	
+	/*for(j = 0; j < 6; ++j){
+		lua_pushnumber(L, mE[j]);
+	}*/
+	
+	//Create table of tables for output
+	//Forward modes
+	lua_createtable(L, n, 0);
+	for(i = 0; i < n; ++i){  // for each mode
+		lua_pushinteger(L, i+1);  //pushes the key for the big table (mode #)
+		/* push a complex number */
+		lua_createtable(L, 6, 0);   //Creates new mini table inside, space for 6 array elements (real and imag for each direction
+		for(k = 0; k < 6; ++k){  //for each dir and real/imag
+			lua_pushinteger(L, k+1);  //pushes the key for the little table
+			lua_pushnumber(L, ampEforw[6*i+k]);  //pushes the value into the table
+			lua_settable(L, -3);  //Creates table entry from pushed keys and values
+		}
+		lua_settable(L, -3); //Creates table entry from minitable
+	}
+	//Backward modes
+	lua_createtable(L, n, 0);
+	for(i = 0; i < n; ++i){  // for each mode
+		lua_pushinteger(L, i+1);  //pushes the key for the big table (mode #)
+		/* push a complex number */
+		lua_createtable(L, 6, 0);   //Creates new mini table inside, space for 6 array elements (real and imag for each direction
+		for(k = 0; k < 6; ++k){  //for each dir and real/imag
+			lua_pushinteger(L, k+1);  //pushes the key for the little table
+			lua_pushnumber(L, ampEback[6*i+k]);  //pushes the value into the table //uses 2nd half of ampE
+			lua_settable(L, -3);  //Creates table entry from pushed keys and values
+		}
+		lua_settable(L, -3); //Creates table entry from minitable
+	}
+	
+	free(ampEforw);
+	free(ampEback);
+	
+	return 6;
 }
 static int S4L_Simulation_GetEField(lua_State *L){
 	int j, ret;
@@ -2922,6 +2997,7 @@ static int S4_openlib(lua_State *L){
 		{"GetLayerMagneticEnergyDensityIntegral", S4L_Simulation_GetLayerMagneticEnergyDensityIntegral},
 		{"GetLayerElectricFieldIntensityIntegral", S4L_Simulation_GetLayerElectricFieldIntensityIntegral},
 		{"GetLayerZIntegral", S4L_Simulation_GetLayerZIntegral},
+		{"GetEModes", S4L_Simulation_GetEModes},
 		{"GetEField", S4L_Simulation_GetEField},
 		{"GetHField", S4L_Simulation_GetHField},
 		{"GetFields", S4L_Simulation_GetFields},

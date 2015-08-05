@@ -917,7 +917,7 @@ void TranslateAmplitudes(
 	const std::complex<double> *q, // length 2*glist.n
 	double thickness,
 	double dz,
-	std::complex<double> *ab
+	std::complex<double> *ab  // length 4*glist.n  //x,y and a,b
 ){
 	const size_t n2 = 2*n;
 	for(size_t i = 0; i < n2; ++i){
@@ -925,10 +925,10 @@ void TranslateAmplitudes(
 		// When extrapolating, the exponentials can be huge, so we need to check
 		// against overflow. This doesn't solve the problem completely, but it helps.
 		if(0. != ab[i]){
-			ab[i]    *= std::exp(iq*dz);
+			ab[i]    *= std::exp(iq*dz);  //a vector: f(z)*a
 		}
 		if(0. != ab[i+n2]){
-			ab[i+n2] *= std::exp(iq*(thickness-dz));
+			ab[i+n2] *= std::exp(iq*(thickness-dz));  //b vector: f(d-z)*b
 		}
 	}
 }
@@ -1062,10 +1062,10 @@ static void GetInPlaneFieldVector(
 	const size_t n4 = 2*n2;
 	
 	for(size_t i = 0; i < n2; ++i){
-		eh[4*n2+i] = ab[i]/(omega*q[i]);
-		eh[5*n2+i] = -ab[i+n2]/(omega*q[i]);
+		eh[4*n2+i] = ab[i]/(omega*q[i]);  //a vector
+		eh[5*n2+i] = -ab[i+n2]/(omega*q[i]);  //b vector
 	}
-	RNP::TBLAS::Copy(n4, ab,1, &eh[6*n2],1);
+	RNP::TBLAS::Copy(n4, ab,1, &eh[6*n2],1);  //6th column of eh is ab (2*n tall column)
 	if(NULL == phi){
 		RNP::TBLAS::CopyMatrix<'A'>(n2,4, &eh[4*n2],n2, &eh[0],n2);
 	}else{
@@ -1082,6 +1082,140 @@ static void GetInPlaneFieldVector(
 	const std::complex<double> *ney = &eh[4*n2+0];
 	const std::complex<double> *ex  = &eh[4*n2+n];
 	*/
+}
+
+void GetEModeAtZ(
+	size_t n, // glist.n
+	const double *kx,
+	const double *ky,
+	std::complex<double> omega,
+	const std::complex<double> *q, // length 2*glist.n
+	const std::complex<double> *kp, // size (2*glist.n)^2 (k-parallel matrix)
+	const std::complex<double> *phi, // size (2*glist.n)^2
+	const std::complex<double> *epsilon_inv, // size (glist.n)^2, non NULL for efield != NULL
+	int epstype,
+	const std::complex<double> *ab, // length 4*glist.n
+	const double z,
+	const std::complex<double> emodeforw,  //length 3*glist.n
+	const std::complex<double> emodeback,
+	//std::complex<double> emode[3],
+	//const double r[2], // coordinates within layer
+	//std::complex<double> efield[3],
+	//std::complex<double> hfield[3],
+	std::complex<double> *work // 8*n2
+){
+	const std::complex<double> z_zero(0.);
+	const std::complex<double> z_one(1.);
+	const size_t n2 = 2*n;
+	
+	std::complex<double> *eh = work;  //points to start of field data
+	if(NULL == work){
+		eh = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 8*n2);
+	}
+	
+	//Need to do 2 calculations of a field vector: one including only forward(a)modes and one including only backward(b)modes
+
+//Forward modes:
+	const std::complex<double> *abforw[4*n]
+	for(size_t i = 0; i < n; ++i) {
+		abforw[i] = ab[i];   //copies values of a vector
+	}
+	for(size_t i = n; i < n2; ++i) {
+		abforw[i] = std::complex<double>(0,0);  //sets b vector to 0;
+	}
+
+	GetInPlaneFieldVector(n, kx, ky, omega, q, epsilon_inv, epstype, kp, phi, abforw, eh);   //gets field components for each mode (but does both forward and backward together
+	const std::complex<double> *hx  = &eh[3*n2+0];
+	const std::complex<double> *hy  = &eh[3*n2+n];
+	const std::complex<double> *ney = &eh[4*n2+0];
+	const std::complex<double> *ex  = &eh[4*n2+n];
+	
+	
+	if( NULL != epsilon_inv){
+		for(size_t i = 0; i < n; ++i){
+			eh[i] = (ky[i]*hx[i] - kx[i]*hy[i]);
+		}
+		if(EPSILON2_TYPE_BLKDIAG1_SCALAR == epstype || EPSILON2_TYPE_BLKDIAG2_SCALAR == epstype){
+			RNP::TBLAS::Scale(n, epsilon_inv[0], eh,1);
+			RNP::TBLAS::Copy(n, eh,1, &eh[n], 1);
+		}else{
+			RNP::TBLAS::MultMV<'N'>(n,n, z_one,epsilon_inv,n, eh,1, z_zero,&eh[n],1);
+		}
+	}
+	
+	//For each mode, calculate the z-components of the fields
+	for(size_t i = 0; i < n; ++i){
+		emodeforw[3*i + 0] = ex[i]; //complex x-component
+		emodeforw[3*i + 1] = -1*ney[i]; //y
+		emodeforw[3*i + 2] = eh[n+i] * 1 / omega; //z
+	}
+	
+//Backward modes:
+	const std::complex<double> *abback[4*n]
+	for(size_t i = 0; i < n; ++i) {
+		abback[i] = std::complex<double>(0,0);   //sets a vector to 0
+	}
+	for(size_t i = n; i < n2; ++i) {
+		abback[i] = ab[i];   //copies values of b vector
+	}
+
+	GetInPlaneFieldVector(n, kx, ky, omega, q, epsilon_inv, epstype, kp, phi, abback, eh);   //gets field components for each mode (but does both forward and backward together
+	const std::complex<double> *hx  = &eh[3*n2+0];
+	const std::complex<double> *hy  = &eh[3*n2+n];
+	const std::complex<double> *ney = &eh[4*n2+0];
+	const std::complex<double> *ex  = &eh[4*n2+n];
+	
+	
+	if( NULL != epsilon_inv){
+		for(size_t i = 0; i < n; ++i){
+			eh[i] = (ky[i]*hx[i] - kx[i]*hy[i]);
+		}
+		if(EPSILON2_TYPE_BLKDIAG1_SCALAR == epstype || EPSILON2_TYPE_BLKDIAG2_SCALAR == epstype){
+			RNP::TBLAS::Scale(n, epsilon_inv[0], eh,1);
+			RNP::TBLAS::Copy(n, eh,1, &eh[n], 1);
+		}else{
+			RNP::TBLAS::MultMV<'N'>(n,n, z_one,epsilon_inv,n, eh,1, z_zero,&eh[n],1);
+		}
+	}
+	
+	//For each mode, calculate the z-components of the fields
+	for(size_t i = 0; i < n; ++i){
+		emodeback[3*i + 0] = ex[i]; //complex x-component
+		emodeback[3*i + 1] = -1*ney[i]; //y
+		emodeback[3*i + 2] = eh[n+i] * 1 / omega; //z
+	}
+	
+	
+	
+	
+	
+	
+/*	for(size_t i = 0; i < n; ++i){  //go through each mode, adding up electric field
+		const double theta = (kx[i]*r[0] + ky[i]*r[1]); //phase shift cause by difference between r and origin  //0 if at origin
+
+		const std::complex<double> phase(cos(theta),sin(theta));  //if at origin, phase = 1 + 0i
+		fH[0] += hx[i]*phase;
+		fH[1] += hy[i]*phase;
+		fE[0] += ex[i]*phase;
+		fE[1] -= ney[i]*phase;
+		fH[2] += (kx[i] * -ney[i] - ky[i] * ex[i]) * (phase / omega);  //Calculate the h_z and e_z
+		fE[2] += eh[n+i] * (phase / omega);
+	}*/
+	
+	/*if(NULL != efield && NULL != epsilon_inv){ //prepare data for output
+		efield[0] = fE[0];
+		efield[1] = fE[1];
+		efield[2] = fE[2];
+	}
+	if(NULL != hfield){
+		hfield[0] = fH[0];
+		hfield[1] = fH[1];
+		hfield[2] = fH[2];
+	}*/
+	
+	if(NULL == work){
+		rcwa_free(eh);
+	}
 }
 
 void GetFieldAtPoint(

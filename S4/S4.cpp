@@ -2176,6 +2176,122 @@ int Simulation_OutputLayerPatternRealization(Simulation *S, Layer *layer, int nx
 	S4_TRACE("< Simulation_OutputLayerPatternRealization\n");
 	return 0;
 }
+int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *back){
+	S4_TRACE("> Simulation_GetEMode(S=%p, z=%f, forw=%p, back=%p)\n",
+		S, z, forw, back);
+	if(NULL == S){
+		S4_TRACE("< Simulation_GetEMode (failed; S == NULL)\n");
+		return -1;
+	}
+	if(NULL == z){
+		S4_TRACE("< Simulation_GetEMode (failed; z == NULL)\n");
+		return -2;
+	}
+	
+	const size_t n1 = S->n_G;
+	const size_t n2 = 2*S->n_G;  //Need twice as many entries as modes for (a) and (b) tables  
+	const size_t n4 = 2*n2; //Need four times as many entries as modes for e_t and h_t tables
+	
+	Layer *L = S->layer;
+	//double dz = r[2];
+	dz = z;  //here describes the absolute position of z, changes to relative position wrt layer
+	{
+		double z = 0;
+		while(NULL != L && dz > z+L->thickness){  //iterates through layers, with z being the sum of thicknesses of layers below the point
+			z += L->thickness;
+			dz -= L->thickness;
+			if(NULL == L->next){ break; }
+			L = L->next;
+		}
+	}  //After this, z should be the sum of layer thicknesses completely below z, and dz should be the distance between the target plane and the next layer down
+	if(NULL == L){
+		S4_TRACE("< Simulation_GetEMode (failed; no layers found)\n");
+		return 14;
+	}
+//fprintf(stderr, "(%f,%f,%f) in %s: dz = %f\n", r[0], r[1], r[2], L->name, dz);
+	
+	LayerBands *Lbands;
+	LayerSolution *Lsoln;
+	int ret = Simulation_GetLayerSolution(S, L, &Lbands, &Lsoln);  //gets the solutions of the simulation
+	if(0 != ret){
+		S4_TRACE("< Simulation_GetEMode (failed; Simulation_GetLayerSolution returned %d)\n", ret);
+		return ret;
+	}
+	
+	std::complex<double> *ab = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n4+8*n2));  //allocates space for (a) and (b) arrays (n*4 complexes) and field data (16*n complexes) -don't appear to need all of it
+	if(NULL == ab){
+		S4_TRACE("< Simulation_GetEMode (failed; allocation failed)\n");
+		return 1;
+	}
+	std::complex<double> *work = ab + n4;   //position of memory partition for field data
+	
+	RNP::TBLAS::Copy(n4, Lsoln->ab,1, ab,1);  
+	//RNP::IO::PrintVector(n4, ab, 1);
+	TranslateAmplitudes(S->n_G, Lbands->q, L->thickness, dz, ab);   //Multiplies (a) and (b) array by f(z) and f(d-z) (essentially exp(i*q_n*z) and exp(i*q_n*(d-z))
+
+	//std::complex<double> efield[3], hfield[3];  //complex field values at point
+	
+	std::complex<double> emodeforw[n1*3]; //complex vector components of e-field
+	std::complex<double> emodeback[n1*3];
+	
+	//Calculate Efield array
+	GetEModeAtZ(
+		S->n_G, S->solution->kx, S->solution->ky, std::complex<double>(S->omega[0],S->omega[1]),
+		Lbands->q, Lbands->kp, Lbands->phi, Lbands->Epsilon_inv, Lbands->epstype,
+		ab, z, emodeforw, emodeback, work);  //emodeforw is an array of complex doubles (size n)
+	
+	
+	if(NULL != forw){
+		for(int i = 0; i < n1*3; ++i){   //Split each pair of returned values into an array of doubles (size 2*n)
+			//forw[2*i+0] = ab[i].real();
+			//forw[2*i+1] = ab[i].imag();
+			forw[2*i+0] = emodeforw[i].real();
+			forw[2*i+1] = emodeforw[i].imag();
+		}
+	}
+	if(NULL != back){
+		for(int i = 0; i < n2; ++i){
+			//back[2*i+0] = ab[n2+i].real();
+			//back[2*i+1] = ab[n2+i].imag();
+			back[2*i+0] = emodeback[i].real();
+			back[2*i+1] = emodeback[i].imag();
+		}
+	}
+		
+		
+/*	//Copy returned complex values into array
+	mE[0] = emode[0].real();
+	mE[1] = emode[1].real();
+	mE[2] = emode[2].real();
+	mE[3] = emode[0].imag();
+	mE[4] = emode[1].imag();
+	mE[5] = emode[2].imag();*/
+	
+	/*GetFieldAtPoint(
+		S->n_G, S->solution->kx, S->solution->ky, std::complex<double>(S->omega[0],S->omega[1]),
+		Lbands->q, Lbands->kp, Lbands->phi, Lbands->Epsilon_inv, Lbands->epstype,
+		ab, r, (NULL != fE ? efield : NULL) , (NULL != fH ? hfield : NULL), work);*/
+	/*if(NULL != fE){
+		fE[0] = efield[0].real();
+		fE[1] = efield[1].real();
+		fE[2] = efield[2].real();
+		fE[3] = efield[0].imag();
+		fE[4] = efield[1].imag();
+		fE[5] = efield[2].imag();
+	}
+	if(NULL != fH){
+		fH[0] = hfield[0].real();
+		fH[1] = hfield[1].real();
+		fH[2] = hfield[2].real();
+		fH[3] = hfield[0].imag();
+		fH[4] = hfield[1].imag();
+		fH[5] = hfield[2].imag();
+	}*/
+	S4_free(ab);
+	
+	S4_TRACE("< Simulation_GetEMode\n");
+	return 0;
+}
 int Simulation_GetField(Simulation *S, const double r[3], double fE[6], double fH[6]){
 	S4_TRACE("> Simulation_GetField(S=%p, r=%p (%f,%f,%f), fE=%p, fH=%p)\n",
 		S, r, (NULL == r ? 0 : r[0]), (NULL == r ? 0 : r[1]), (NULL == r ? 0 : r[2]), fE, fH);
