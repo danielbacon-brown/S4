@@ -2183,10 +2183,10 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 		S4_TRACE("< Simulation_GetEMode (failed; S == NULL)\n");
 		return -1;
 	}
-	if(NULL == z){
+	/*if(NULL == z){  //Assuming that z is set properly
 		S4_TRACE("< Simulation_GetEMode (failed; z == NULL)\n");
 		return -2;
-	}
+	}*/
 	
 	const size_t n1 = S->n_G;
 	const size_t n2 = 2*S->n_G;  //Need twice as many entries as modes for (a) and (b) tables  
@@ -2194,7 +2194,7 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 	
 	Layer *L = S->layer;
 	//double dz = r[2];
-	dz = z;  //here describes the absolute position of z, changes to relative position wrt layer
+	double dz = z;  //here describes the absolute position of z, changes to relative position wrt layer
 	{
 		double z = 0;
 		while(NULL != L && dz > z+L->thickness){  //iterates through layers, with z being the sum of thicknesses of layers below the point
@@ -2231,8 +2231,10 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 
 	//std::complex<double> efield[3], hfield[3];  //complex field values at point
 	
-	std::complex<double> emodeforw[n1*3]; //complex vector components of e-field
-	std::complex<double> emodeback[n1*3];
+	//std::complex<double> emodeforw[n1*3]; //complex vector components of e-field
+	//std::complex<double> emodeback[n1*3];
+	std::complex<double> *emodeforw = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n1*3)); //Allocate space for mode data
+	std::complex<double> *emodeback = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n1*3));
 	
 	//Calculate Efield array
 	GetEModeAtZ(
@@ -2288,7 +2290,8 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 		fH[5] = hfield[2].imag();
 	}*/
 	S4_free(ab);
-	
+	S4_free(emodeforw);
+	S4_free(emodeback);
 	S4_TRACE("< Simulation_GetEMode\n");
 	return 0;
 }

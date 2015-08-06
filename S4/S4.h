@@ -362,7 +362,7 @@ int Simulation_OutputStructurePOVRay(Simulation *S, FILE *fp);
 
 // Outputs a PostScript rendering of the layer pattern to stdout.
 // Return value can be ignored for valid inputs.
-int Simulation_OutputLayerPatternDescription(SimulatioGetFieldAtPointn *S, Layer *layer, FILE *fp);
+int Simulation_OutputLayerPatternDescription(Simulation *S, Layer *layer, FILE *fp);
 
 // Returns a solution error code
 // Outputs the Fourier reconstruction of the layer pattern to stdout in Gnuplot splot format.
@@ -370,7 +370,7 @@ int Simulation_OutputLayerPatternDescription(SimulatioGetFieldAtPointn *S, Layer
 int Simulation_OutputLayerPatternRealization(Simulation *S, Layer *layer, int nu, int nv, FILE *fp);
 
 //forw,back stored as [E1xr,E1yr,E1zr,E1xi,E1yi,E1zi, E2xr,E2yr,E2zr,E2xi,E2yi,E2zi, ... for En modes
-int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *back)
+int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *back);
 
 
 // Returns a solution error code

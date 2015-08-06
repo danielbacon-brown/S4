@@ -447,14 +447,10 @@ void GetEModeAtZ(
 	int epstype,
 	const std::complex<double> *ab, // length 4*glist.n
 	const double z,
-	const std::complex<double> emodeforw,  //length 3*glist.n
-	const std::complex<double> emodeback,
-	//std::complex<double> emode[3],
-	//const double r[2], // coordinates within layer
-	//std::complex<double> efield[3],
-	//std::complex<double> hfield[3],
+	const std::complex<double> *emodeforw,  //length 3*glist.n
+	const std::complex<double> *emodeback,
 	std::complex<double> *work // 8*n2
-)
+);
 
 
 

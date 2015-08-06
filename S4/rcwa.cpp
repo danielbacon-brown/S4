@@ -1096,16 +1096,13 @@ void GetEModeAtZ(
 	int epstype,
 	const std::complex<double> *ab, // length 4*glist.n
 	const double z,
-	const std::complex<double> emodeforw,  //length 3*glist.n
-	const std::complex<double> emodeback,
-	//std::complex<double> emode[3],
-	//const double r[2], // coordinates within layer
-	//std::complex<double> efield[3],
-	//std::complex<double> hfield[3],
+	std::complex<double> *emodeforw,  //length 3*glist.n
+	std::complex<double> *emodeback,
 	std::complex<double> *work // 8*n2
 ){
 	const std::complex<double> z_zero(0.);
 	const std::complex<double> z_one(1.);
+	const size_t n1 = n;
 	const size_t n2 = 2*n;
 	
 	std::complex<double> *eh = work;  //points to start of field data
@@ -1116,7 +1113,9 @@ void GetEModeAtZ(
 	//Need to do 2 calculations of a field vector: one including only forward(a)modes and one including only backward(b)modes
 
 //Forward modes:
-	const std::complex<double> *abforw[4*n]
+{
+	//const std::complex<double> *abforw[4*n] = NULL;
+	std::complex<double> *abforw = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 3*n1);
 	for(size_t i = 0; i < n; ++i) {
 		abforw[i] = ab[i];   //copies values of a vector
 	}
@@ -1145,13 +1144,16 @@ void GetEModeAtZ(
 	
 	//For each mode, calculate the z-components of the fields
 	for(size_t i = 0; i < n; ++i){
+		//const std::complex<double> phase(cos(0),sin(0)); //REMOVE-DEBUG //if at origin, phase = 1 + 0i
 		emodeforw[3*i + 0] = ex[i]; //complex x-component
-		emodeforw[3*i + 1] = -1*ney[i]; //y
-		emodeforw[3*i + 2] = eh[n+i] * 1 / omega; //z
+		emodeforw[3*i + 1] = z_zero - ney[i]; //y
+		emodeforw[3*i + 2] = eh[n+i] * z_one / omega; //z
 	}
-	
+	rcwa_free(abforw);
+}
 //Backward modes:
-	const std::complex<double> *abback[4*n]
+{
+	std::complex<double> *abback = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 3*n1);
 	for(size_t i = 0; i < n; ++i) {
 		abback[i] = std::complex<double>(0,0);   //sets a vector to 0
 	}
@@ -1181,11 +1183,13 @@ void GetEModeAtZ(
 	//For each mode, calculate the z-components of the fields
 	for(size_t i = 0; i < n; ++i){
 		emodeback[3*i + 0] = ex[i]; //complex x-component
-		emodeback[3*i + 1] = -1*ney[i]; //y
-		emodeback[3*i + 2] = eh[n+i] * 1 / omega; //z
+		emodeback[3*i + 1] = z_zero - ney[i]; //y
+		emodeback[3*i + 2] = eh[n+i] * z_one / omega; //z
 	}
 	
+	rcwa_free(abback);
 	
+}
 	
 	
 	
@@ -1216,6 +1220,7 @@ void GetEModeAtZ(
 	if(NULL == work){
 		rcwa_free(eh);
 	}
+
 }
 
 void GetFieldAtPoint(
