@@ -2127,7 +2127,7 @@ static int S4L_Simulation_GetAmplitudes(lua_State *L){
 	Layer *layer;
 	Simulation *S = S4L_get_simulation(L, 1);
 	luaL_argcheck(L, S != NULL, 1, "GetAmplitudes: 'Simulation' object expected.");
-
+//Loads data: layer name
 	layer_name = luaL_checklstring(L, 2, NULL);
 	layer = Simulation_GetLayerByName(S, layer_name, NULL);
 	if(NULL == layer){
@@ -2149,22 +2149,22 @@ static int S4L_Simulation_GetAmplitudes(lua_State *L){
 	amp = (double*)malloc(sizeof(double)*8*n);
 	Simulation_GetAmplitudes(S, 
 		layer,
-		luaL_checknumber(L, 3),
+		luaL_checknumber(L, 3), //gets the z-number that was entered
 		amp, &amp[4*n]);  
-	
+	//Outputs forw amplitudes
 	lua_createtable(L, 2*n, 0);
-	for(i = 0; i < 2*n; ++i){
-		lua_pushinteger(L, i+1);
+	for(i = 0; i < 2*n; ++i){  //for x and y of each mode
+		lua_pushinteger(L, i+1);   //pushes the key
 		/* push a complex number */
-		lua_createtable(L, 2, 0);
+		lua_createtable(L, 2, 0);  //creates a minitable
 		for(k = 0; k < 2; ++k){
-			lua_pushinteger(L, k+1);
-			lua_pushnumber(L, amp[4*n*0+2*i+k]);
-			lua_settable(L, -3);
+			lua_pushinteger(L, k+1); //pushes a key
+			lua_pushnumber(L, amp[4*n*0+2*i+k]);  //pushes the value
+			lua_settable(L, -3); //sets the key+value
 		}
-		lua_settable(L, -3);
+		lua_settable(L, -3);  //sets the key+minitable
 	}
-	
+	//Outputs back amplitudes
 	lua_createtable(L, 2*n, 0);
 	for(i = 0; i < 2*n; ++i){
 		lua_pushinteger(L, i+1);
@@ -2454,7 +2454,8 @@ static int S4L_Simulation_OutputLayerPatternRealization(lua_State *L){
 static int S4L_Simulation_GetEModes(lua_State *L){
 	double *ampEforw;
 	double *ampEback;
-	int j, ret;
+	int *G;
+	int n,i,k,j, ret;
 	//double r[3], fE[6];
 	//double z, mE[6];
 	double z;
@@ -2466,8 +2467,19 @@ static int S4L_Simulation_GetEModes(lua_State *L){
 		return 0;
 	}
 	
+	//Loads the first (and only) input
+	z = luaL_checknumber(L, 2);
 	
-	/*for(j = 0; j < 3; ++j){
+
+	
+
+	
+
+	
+	
+	
+	/*//Loads the lua inputs as parameters
+	for(j = 0; j < 3; ++j){
 		lua_pushinteger(L, 1+j);
 		lua_gettable(L, 2);
 		if(!lua_isnumber(L, -1)){
@@ -2484,34 +2496,46 @@ static int S4L_Simulation_GetEModes(lua_State *L){
 	
 	ret = Simulation_GetEMode(S, z,
 		ampEforw, ampEback); //Gets simulated values
-	//ret = Simulation_GetEMode(S, z, mE);
-	if(0 != ret){   //Need this check?
-		HandleSolutionErrorCode(L, "GetEMode", ret);
-	}
-	
+
+	//if(0 != ret){   //Need this check?
+	//	HandleSolutionErrorCode(L, "GetEMode", ret);
+	//}
+
 	/*for(j = 0; j < 6; ++j){
 		lua_pushnumber(L, mE[j]);
 	}*/
+	
+/*	lua_newtable(L); 
+    lua_newtable(L); 
+    lua_pushinteger(L, 0);
+    lua_pushinteger(L, 4);
+    lua_settable(L, -3);  
+    lua_pushinteger(L, 0);
+    lua_insert(L, -2); 
+    lua_settable(L, -3); */
+	
+	//lua_pushnumber(L,5);
+	
 	
 	//Create table of tables for output
 	//Forward modes
 	lua_createtable(L, n, 0);
 	for(i = 0; i < n; ++i){  // for each mode
 		lua_pushinteger(L, i+1);  //pushes the key for the big table (mode #)
-		/* push a complex number */
-		lua_createtable(L, 6, 0);   //Creates new mini table inside, space for 6 array elements (real and imag for each direction
+		lua_createtable(L, 6, 0);   //Creates new mini table inside, space for 6 array elements (real and imag for each direction)
 		for(k = 0; k < 6; ++k){  //for each dir and real/imag
 			lua_pushinteger(L, k+1);  //pushes the key for the little table
 			lua_pushnumber(L, ampEforw[6*i+k]);  //pushes the value into the table
+			printf("Writing: %f\n", ampEforw[6*i+k]);
 			lua_settable(L, -3);  //Creates table entry from pushed keys and values
 		}
+		printf("\n");
 		lua_settable(L, -3); //Creates table entry from minitable
 	}
 	//Backward modes
 	lua_createtable(L, n, 0);
 	for(i = 0; i < n; ++i){  // for each mode
 		lua_pushinteger(L, i+1);  //pushes the key for the big table (mode #)
-		/* push a complex number */
 		lua_createtable(L, 6, 0);   //Creates new mini table inside, space for 6 array elements (real and imag for each direction
 		for(k = 0; k < 6; ++k){  //for each dir and real/imag
 			lua_pushinteger(L, k+1);  //pushes the key for the little table
@@ -2521,10 +2545,39 @@ static int S4L_Simulation_GetEModes(lua_State *L){
 		lua_settable(L, -3); //Creates table entry from minitable
 	}
 	
+	
+/*	
+//From getamplitudes	
+	//Outputs forw amplitudes
+	lua_createtable(L, n, 0);
+	for(i = 0; i < n; ++i){  //for x and y of each mode
+		lua_pushinteger(L, i+1);   //pushes the key
+		lua_createtable(L, 2, 0);  //creates a minitable
+		for(k = 0; k < 2; ++k){
+			lua_pushinteger(L, k+1); //pushes a key
+			lua_pushnumber(L, ampEforw[4*n*0+2*i+k]);  //pushes the value
+			lua_settable(L, -3); //sets the key+value
+		}
+		lua_settable(L, -3);  //sets the key+minitable
+	}
+	//Outputs back amplitudes
+	lua_createtable(L, n, 0);
+	for(i = 0; i < n; ++i){
+		lua_pushinteger(L, i+1);
+		lua_createtable(L, 2, 0);
+		for(k = 0; k < 2; ++k){
+			lua_pushinteger(L, k+1);
+			lua_pushnumber(L, ampEback[4*n*1+2*i+k]);
+			lua_settable(L, -3);
+		}
+		lua_settable(L, -3);
+	}*/
+	
+
 	free(ampEforw);
 	free(ampEback);
 	
-	return 6;
+	return 2;
 }
 static int S4L_Simulation_GetEField(lua_State *L){
 	int j, ret;

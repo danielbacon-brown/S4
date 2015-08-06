@@ -2229,18 +2229,82 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 	//RNP::IO::PrintVector(n4, ab, 1);
 	TranslateAmplitudes(S->n_G, Lbands->q, L->thickness, dz, ab);   //Multiplies (a) and (b) array by f(z) and f(d-z) (essentially exp(i*q_n*z) and exp(i*q_n*(d-z))
 
-	//std::complex<double> efield[3], hfield[3];  //complex field values at point
+	
 	
 	//std::complex<double> emodeforw[n1*3]; //complex vector components of e-field
 	//std::complex<double> emodeback[n1*3];
 	std::complex<double> *emodeforw = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n1*3)); //Allocate space for mode data
 	std::complex<double> *emodeback = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n1*3));
 	
-	//Calculate Efield array
-	GetEModeAtZ(
+	
+
+	
+	
+	
+/*	std::complex<double> efield[3], hfield[3];  //complex field values at point
+	double fE[6];
+	double fH[6];
+	
+	double r[3];
+	r[0] = 0;
+	r[1] = 0;
+	r[2] = 0;*/
+	
+	
+	//if arguments are wrong, leads to a problem with make
+/*	GetFieldAtPoint(  
 		S->n_G, S->solution->kx, S->solution->ky, std::complex<double>(S->omega[0],S->omega[1]),
 		Lbands->q, Lbands->kp, Lbands->phi, Lbands->Epsilon_inv, Lbands->epstype,
-		ab, z, emodeforw, emodeback, work);  //emodeforw is an array of complex doubles (size n)
+		ab, 
+		r, 
+		(NULL != fE ? efield : NULL) , (NULL != fH ? hfield : NULL), work); */
+	
+	
+	//compiles with make, but not with make s4lua
+	//Doesn't compile with make if the arguments are wrong
+	GetEModeAtZ( 
+		S->n_G, 
+		S->solution->kx, 
+		S->solution->ky, 
+		std::complex<double>(S->omega[0],S->omega[1]),
+		Lbands->q, 
+		Lbands->kp, 
+		Lbands->phi, 
+		Lbands->Epsilon_inv, 
+		Lbands->epstype,
+		ab, 
+		z,
+		emodeforw, 
+		emodeback, 
+		//work);  //emodeforw is an array of complex doubles (size n)
+		NULL);
+	
+/*void GetEModeAtZ(
+	size_t n, // glist.n
+	const double *kx,
+	const double *ky,
+	std::complex<double> omega,
+	const std::complex<double> *q, // length 2*glist.n
+	const std::complex<double> *kp, // size (2*glist.n)^2 (k-parallel matrix)
+	const std::complex<double> *phi, // size (2*glist.n)^2
+	const std::complex<double> *epsilon_inv, // size (glist.n)^2, non NULL for efield != NULL
+	int epstype,
+	const std::complex<double> *ab, // length 4*glist.n
+	double z,
+	std::complex<double> *emodeforw,  //length 3*glist.n
+	std::complex<double> *emodeback,
+	std::complex<double> *work // 8*n2
+)*/
+	
+	
+	
+	for(int i = 0; i < n1; ++i){  // for each mode
+			printf("emodeforw x: %f + i* %f\n", emodeforw[3*i].real(), emodeforw[3*i].imag());
+			printf("emodeforw y: %f + i* %f\n", emodeforw[3*i+1].real(), emodeforw[3*i+1].imag());
+			printf("emodeforw z: %f + i* %f\n", emodeforw[3*i+2].real(), emodeforw[3*i+2].imag());
+		printf("\n");
+	}
+	
 	
 	
 	if(NULL != forw){

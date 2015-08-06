@@ -434,7 +434,6 @@ void GetZPoyntingFluxComponents(
 //Returns the electric field amplitude of each forward and backward mode at a particular z
 //This is done by copying ab so that the b vector to zero, calculating the in-plane field vector, yielding the field only due to the forward mode.
 //Then doing the same with the a-vector zero.
-
 void GetEModeAtZ(
 	size_t n, // glist.n
 	const double *kx,
@@ -446,15 +445,11 @@ void GetEModeAtZ(
 	const std::complex<double> *epsilon_inv, // size (glist.n)^2, non NULL for efield != NULL
 	int epstype,
 	const std::complex<double> *ab, // length 4*glist.n
-	const double z,
-	const std::complex<double> *emodeforw,  //length 3*glist.n
-	const std::complex<double> *emodeback,
-	std::complex<double> *work // 8*n2
+	double z,
+	std::complex<double> *emodeforw,  //length 3*glist.n
+	std::complex<double> *emodeback,
+	std::complex<double> *work = NULL // 8*n2
 );
-
-
-
-
 
 
 
