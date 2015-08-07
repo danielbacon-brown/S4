@@ -447,7 +447,6 @@ void GetEModeAtZ(
 	const std::complex<double> *ab, // length 4*glist.n
 	double z,
 	std::complex<double> *emodeforw,  //length 3*glist.n
-	std::complex<double> *emodeback,
 	std::complex<double> *work = NULL // 8*n2
 );
 

@@ -1084,6 +1084,8 @@ static void GetInPlaneFieldVector(
 	*/
 }
 
+
+//This is called twice, once for forward modes and once for backward modes
 void GetEModeAtZ(
 	size_t n, // glist.n
 	const double *kx,
@@ -1096,10 +1098,10 @@ void GetEModeAtZ(
 	int epstype,
 	const std::complex<double> *ab, // length 4*glist.n
 	double z,
-	std::complex<double> *emodeforw,  //length 3*glist.n
-	std::complex<double> *emodeback,
-	std::complex<double> *work // 8*n2
+	std::complex<double> *emode,  //length 3*glist.n
+	std::complex<double> *work // 8*n2  //is actually NULL
 ){
+	
 	
 	const std::complex<double> z_zero(0.);
 	const std::complex<double> z_one(1.);
@@ -1116,13 +1118,7 @@ void GetEModeAtZ(
 	const std::complex<double> *ney = &eh[4*n2+0];
 	const std::complex<double> *ex  = &eh[4*n2+n];
 	
-/*	std::complex<double> fE[3], fH[3];
-	fE[0] = 0;
-	fE[1] = 0;
-	fE[2] = 0;
-	fH[0] = 0;
-	fH[1] = 0;
-	fH[2] = 0;*/
+
 	
 	if( NULL != epsilon_inv){
 		for(size_t i = 0; i < n; ++i){
@@ -1137,155 +1133,23 @@ void GetEModeAtZ(
 	}
 	
 	for(size_t i = 0; i < n; ++i){
-		/*const double theta = (kx[i]*r[0] + ky[i]*r[1]);
-
-		const std::complex<double> phase(cos(theta),sin(theta));
-		fH[0] += hx[i]*phase;
-		fH[1] += hy[i]*phase;
-		fE[0] += ex[i]*phase;
-		fE[1] -= ney[i]*phase;
-		fH[2] += (kx[i] * -ney[i] - ky[i] * ex[i]) * (phase / omega);
-		fE[2] += eh[n+i] * (phase / omega);*/
 		
 		//Instead of adding up e-field, copy the e-field from each mode to the output
-		emodeforw[3*i + 0] = ex[i]; //complex x-component
-		emodeforw[3*i + 1] = z_zero - ney[i]; //y
-		emodeforw[3*i + 2] = eh[n+i] * z_one / omega; //z
-		printf("emodeforw x: %f + i* %f\n", emodeforw[3*i].real(), emodeforw[3*i].imag());
-		printf("emodeforw y: %f + i* %f\n", emodeforw[3*i+1].real(), emodeforw[3*i+1].imag());
-		printf("emodeforw z: %f + i* %f\n\n", emodeforw[3*i+2].real(), emodeforw[3*i+2].imag());
-		emodeback[3*i + 0] = ex[i]; //complex x-component of E
-		emodeback[3*i + 1] = z_zero - ney[i]; //y
-		emodeback[3*i + 2] = eh[n+i] * z_one / omega; //z
-		
+		emode[3*i + 0] = ex[i]; //complex x-component
+		emode[3*i + 1] = z_zero - ney[i]; //y
+		emode[3*i + 2] = eh[n+i] * z_one / omega; //z
+		/*printf("emode x: %f + i* %f\n", emode[3*i].real(), emode[3*i].imag());
+		printf("emode y: %f + i* %f\n", emode[3*i+1].real(), emode[3*i+1].imag());
+		printf("emode z: %f + i* %f\n\n", emode[3*i+2].real(), emode[3*i+2].imag());*/
+
 	}
 	
-	/*if(NULL != efield && NULL != epsilon_inv){
-		efield[0] = fE[0];
-		efield[1] = fE[1];
-		efield[2] = fE[2];
-	}
-	if(NULL != hfield){
-		hfield[0] = fH[0];
-		hfield[1] = fH[1];
-		hfield[2] = fH[2];
-	}*/
 	
 	if(NULL == work){
 		rcwa_free(eh);
 	}
 	
 	
-	
-	
-	
-/*	const std::complex<double> z_zero(0.);
-	const std::complex<double> z_one(1.);
-	const size_t n1 = n;
-	const size_t n2 = 2*n;
-	
-	//std::complex<double> *eh = work;  //points to start of field data
-	//if(NULL == work){
-	//	eh = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 8*n2);
-	//}
-	
-	//Need to do 2 calculations of a field vector: one including only forward(a)modes and one including only backward(b)modes
-
-//Forward modes:
-	std::complex<double> *ehforw;
-	ehforw = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 8*n2); //Force creation of new space for eh
-	
-
-	//const std::complex<double> *abforw[4*n] = NULL;
-	std::complex<double> *abforw = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 3*n1);
-	for(size_t i = 0; i < n; ++i) {
-		abforw[i] = ab[i];   //copies values of a vector
-	}
-	for(size_t i = n; i < n2; ++i) {
-		//abforw[i] = std::complex<double>(0,0);  //sets b vector to 0;
-		abforw[i] = ab[i];   //copies values of b vector
-	}
-
-	GetInPlaneFieldVector(n, kx, ky, omega, q, epsilon_inv, epstype, kp, phi, abforw, ehforw);   //gets field components for each mode (but does both forward and backward together
-	const std::complex<double> *hx  = &ehforw[3*n2+0];
-	const std::complex<double> *hy  = &ehforw[3*n2+n];
-	const std::complex<double> *ney = &ehforw[4*n2+0];
-	const std::complex<double> *ex  = &ehforw[4*n2+n];
-	
-	
-	if( NULL != epsilon_inv){
-		for(size_t i = 0; i < n; ++i){
-			ehforw[i] = (ky[i]*hx[i] - kx[i]*hy[i]);
-		}
-		if(EPSILON2_TYPE_BLKDIAG1_SCALAR == epstype || EPSILON2_TYPE_BLKDIAG2_SCALAR == epstype){
-			RNP::TBLAS::Scale(n, epsilon_inv[0], ehforw,1);
-			RNP::TBLAS::Copy(n, ehforw,1, &ehforw[n], 1);
-		}else{
-			RNP::TBLAS::MultMV<'N'>(n,n, z_one,epsilon_inv,n, ehforw,1, z_zero,&ehforw[n],1);
-		}
-	}
-	
-	//For each mode, calculate the z-components of the fields
-	for(size_t i = 0; i < n; ++i){
-		//const std::complex<double> phase(cos(0),sin(0)); //REMOVE-DEBUG //if at origin, phase = 1 + 0i
-		emodeforw[3*i + 0] = ex[i]; //complex x-component
-		emodeforw[3*i + 1] = z_zero - ney[i]; //y
-		emodeforw[3*i + 2] = ehforw[n+i] * z_one / omega; //z
-		printf("emodeforw x: %f + i* %f\n", emodeforw[3*i].real(), emodeforw[3*i].imag());
-		printf("emodeforw y: %f + i* %f\n", emodeforw[3*i+1].real(), emodeforw[3*i+1].imag());
-		printf("emodeforw z: %f + i* %f\n", emodeforw[3*i+2].real(), emodeforw[3*i+2].imag());
-		printf("\n");
-	}
-	rcwa_free(abforw);
-	rcwa_free(ehforw);
-
-//Backward modes:
-
-	std::complex<double> *ehback;
-	ehback = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 8*n2); //Force creation of new space for eh
-	
-	std::complex<double> *abback = (std::complex<double>*)rcwa_malloc(sizeof(std::complex<double>) * 3*n1);
-	for(size_t i = 0; i < n; ++i) {
-		abback[i] = std::complex<double>(0,0);   //sets a vector to 0
-	}
-	for(size_t i = n; i < n2; ++i) {
-		abback[i] = ab[i];   //copies values of b vector
-	}
-
-	GetInPlaneFieldVector(n, kx, ky, omega, q, epsilon_inv, epstype, kp, phi, abback, ehback);   //gets field components for each mode (but does both forward and backward together
-	const std::complex<double> *hxb  = &ehback[3*n2+0];
-	const std::complex<double> *hyb  = &ehback[3*n2+n];
-	const std::complex<double> *neyb = &ehback[4*n2+0];
-	const std::complex<double> *exb  = &ehback[4*n2+n];
-	
-	
-	if( NULL != epsilon_inv){
-		for(size_t i = 0; i < n; ++i){
-			ehback[i] = (ky[i]*hxb[i] - kx[i]*hyb[i]);
-		}
-		if(EPSILON2_TYPE_BLKDIAG1_SCALAR == epstype || EPSILON2_TYPE_BLKDIAG2_SCALAR == epstype){
-			RNP::TBLAS::Scale(n, epsilon_inv[0], ehback,1);
-			RNP::TBLAS::Copy(n, ehback,1, &ehback[n], 1);
-		}else{
-			RNP::TBLAS::MultMV<'N'>(n,n, z_one,epsilon_inv,n, ehback,1, z_zero,&ehback[n],1);
-		}
-	}
-	
-	//For each mode, calculate the z-components of the fields
-	for(size_t i = 0; i < n; ++i){
-		emodeback[3*i + 0] = exb[i]; //complex x-component
-		emodeback[3*i + 1] = z_zero - neyb[i]; //y
-		emodeback[3*i + 2] = ehback[n+i] * z_one / omega; //z
-	}
-	
-	rcwa_free(abback);
-	rcwa_free(ehback);
-
-	
-//	if(NULL == work){
-//		rcwa_free(eh);
-//	}*/
-
 }
 
 void GetFieldAtPoint(

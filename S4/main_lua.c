@@ -2526,10 +2526,10 @@ static int S4L_Simulation_GetEModes(lua_State *L){
 		for(k = 0; k < 6; ++k){  //for each dir and real/imag
 			lua_pushinteger(L, k+1);  //pushes the key for the little table
 			lua_pushnumber(L, ampEforw[6*i+k]);  //pushes the value into the table
-			printf("Writing: %f\n", ampEforw[6*i+k]);
+			//printf("Writing: %f\n", ampEforw[6*i+k]);
 			lua_settable(L, -3);  //Creates table entry from pushed keys and values
 		}
-		printf("\n");
+		//printf("\n");
 		lua_settable(L, -3); //Creates table entry from minitable
 	}
 	//Backward modes

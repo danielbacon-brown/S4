@@ -2183,11 +2183,7 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 		S4_TRACE("< Simulation_GetEMode (failed; S == NULL)\n");
 		return -1;
 	}
-	/*if(NULL == z){  //Assuming that z is set properly
-		S4_TRACE("< Simulation_GetEMode (failed; z == NULL)\n");
-		return -2;
-	}*/
-	
+	const std::complex<double> z_zero(0,0);  //0+i*0
 	const size_t n1 = S->n_G;
 	const size_t n2 = 2*S->n_G;  //Need twice as many entries as modes for (a) and (b) tables  
 	const size_t n4 = 2*n2; //Need four times as many entries as modes for e_t and h_t tables
@@ -2230,38 +2226,25 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 	TranslateAmplitudes(S->n_G, Lbands->q, L->thickness, dz, ab);   //Multiplies (a) and (b) array by f(z) and f(d-z) (essentially exp(i*q_n*z) and exp(i*q_n*(d-z))
 
 	
+	std::complex<double> *abforw = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n4));  //Allocate space for ab copy
+	memcpy(abforw, ab, sizeof(std::complex<double>) * n4);  //copy ab to abforw
+	for(int i = 0; i < n2; ++i){  // for each mode in b-vector
+		abforw[i+n2] = z_zero;  //set to zero
+	}
+	std::complex<double> *abback = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n4));
+	memcpy(abback, ab, sizeof(std::complex<double>) * n4);  //copy ab to abback
+	for(int i = 0; i < n2; ++i){  // for each mode in a-vector
+		abback[i] = z_zero;   //set to zero
+	}
 	
-	//std::complex<double> emodeforw[n1*3]; //complex vector components of e-field
-	//std::complex<double> emodeback[n1*3];
 	std::complex<double> *emodeforw = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n1*3)); //Allocate space for mode data
 	std::complex<double> *emodeback = (std::complex<double>*)S4_malloc(sizeof(std::complex<double>) * (n1*3));
 	
-	
-
-	
-	
-	
-/*	std::complex<double> efield[3], hfield[3];  //complex field values at point
-	double fE[6];
-	double fH[6];
-	
-	double r[3];
-	r[0] = 0;
-	r[1] = 0;
-	r[2] = 0;*/
-	
-	
-	//if arguments are wrong, leads to a problem with make
-/*	GetFieldAtPoint(  
-		S->n_G, S->solution->kx, S->solution->ky, std::complex<double>(S->omega[0],S->omega[1]),
-		Lbands->q, Lbands->kp, Lbands->phi, Lbands->Epsilon_inv, Lbands->epstype,
-		ab, 
-		r, 
-		(NULL != fE ? efield : NULL) , (NULL != fH ? hfield : NULL), work); */
-	
+	//bool doForward = true;  //Does the forward modes (assumes backward mode amplitudes = 0)
 	
 	//compiles with make, but not with make s4lua
 	//Doesn't compile with make if the arguments are wrong
+	//Forward
 	GetEModeAtZ( 
 		S->n_G, 
 		S->solution->kx, 
@@ -2272,53 +2255,44 @@ int Simulation_GetEMode(Simulation *S, const double z, double *forw, double *bac
 		Lbands->phi, 
 		Lbands->Epsilon_inv, 
 		Lbands->epstype,
-		ab, 
+		abforw, 
 		z,
-		emodeforw, 
-		emodeback, 
-		//work);  //emodeforw is an array of complex doubles (size n)
-		NULL);
+		emodeforw, //emodeforw is an array of complex doubles (size n)
+		NULL);  //work
+		
+	//Forward
+	GetEModeAtZ( 
+		S->n_G, 
+		S->solution->kx, 
+		S->solution->ky, 
+		std::complex<double>(S->omega[0],S->omega[1]),
+		Lbands->q, 
+		Lbands->kp, 
+		Lbands->phi, 
+		Lbands->Epsilon_inv, 
+		Lbands->epstype,
+		abback, 
+		z,
+		emodeback, //emodeforw is an array of complex doubles (size n)
+		NULL);  //work
 	
-/*void GetEModeAtZ(
-	size_t n, // glist.n
-	const double *kx,
-	const double *ky,
-	std::complex<double> omega,
-	const std::complex<double> *q, // length 2*glist.n
-	const std::complex<double> *kp, // size (2*glist.n)^2 (k-parallel matrix)
-	const std::complex<double> *phi, // size (2*glist.n)^2
-	const std::complex<double> *epsilon_inv, // size (glist.n)^2, non NULL for efield != NULL
-	int epstype,
-	const std::complex<double> *ab, // length 4*glist.n
-	double z,
-	std::complex<double> *emodeforw,  //length 3*glist.n
-	std::complex<double> *emodeback,
-	std::complex<double> *work // 8*n2
-)*/
-	
-	
-	
-	for(int i = 0; i < n1; ++i){  // for each mode
+	/*for(int i = 0; i < n1; ++i){  // for each mode
 			printf("emodeforw x: %f + i* %f\n", emodeforw[3*i].real(), emodeforw[3*i].imag());
 			printf("emodeforw y: %f + i* %f\n", emodeforw[3*i+1].real(), emodeforw[3*i+1].imag());
 			printf("emodeforw z: %f + i* %f\n", emodeforw[3*i+2].real(), emodeforw[3*i+2].imag());
 		printf("\n");
-	}
+	}*/
 	
 	
 	
 	if(NULL != forw){
 		for(int i = 0; i < n1*3; ++i){   //Split each pair of returned values into an array of doubles (size 2*n)
-			//forw[2*i+0] = ab[i].real();
-			//forw[2*i+1] = ab[i].imag();
 			forw[2*i+0] = emodeforw[i].real();
 			forw[2*i+1] = emodeforw[i].imag();
 		}
 	}
 	if(NULL != back){
 		for(int i = 0; i < n2; ++i){
-			//back[2*i+0] = ab[n2+i].real();
-			//back[2*i+1] = ab[n2+i].imag();
 			back[2*i+0] = emodeback[i].real();
 			back[2*i+1] = emodeback[i].imag();
 		}
